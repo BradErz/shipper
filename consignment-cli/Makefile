@@ -1,9 +1,5 @@
-goimports:
-	goimports -w .
-
-build: goimports
-	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo .
+build:
 	docker build -t consignment-cli .
 
-run: build
+run:
 	docker run -e MICRO_REGISTRY=mdns consignment-cli

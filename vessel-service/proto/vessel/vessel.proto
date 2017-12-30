@@ -1,8 +1,6 @@
-// vessel-service/proto/vessel/vessel.proto
-
 syntax = "proto3";
 
-package go.micro.srv.vessel;
+package vessel;
 
 service VesselService {
     rpc FindAvailable(Specification) returns (Response) {}
@@ -13,8 +11,8 @@ message Vessel {
     int32 capacity = 2;
     int32 max_weight = 3;
     string name = 4;
-    bool availiable = 5;
-    string owner = 6;
+    bool available = 5;
+    string owner_id = 6;
 }
 
 message Specification {
