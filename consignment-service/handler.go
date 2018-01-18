@@ -24,7 +24,7 @@ func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment, re
 	repo := s.GetRepo()
 	defer repo.Close()
 
-	vesselResponse, err := s.vesselClient.FindAvailiable(context.Background(), &vesselProto.Specification{
+	vesselResponse, err := s.vesselClient.FindAvailable(context.Background(), &vesselProto.Specification{
 		MaxWeight: req.Weight,
 		Capacity: int32(len(req.Containers)),
 	})
