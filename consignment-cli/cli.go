@@ -9,11 +9,11 @@ import (
 	"log"
 
 	pb "github.com/BradErz/shippy/consignment-service/proto/consignment"
-	"google.golang.org/grpc"
+	"github.com/micro/go-micro/cmd"
+	microclient "github.com/micro/go-micro/client"
 )
 
 const (
-	address = "localhost:50051"
 	defaultFilename = "consignment.json"
 )
 
@@ -29,14 +29,8 @@ func parseFile(file string) (*pb.Consignment, error) {
 }
 
 func main()  {
-	// Setup a connection to the server
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewShippingServiceClient(conn)
+	cmd.Init()
+	client := pb.NewShippingServiceClient("go.micro.srv.consignment", microclient.DefaultClient)
 
 	// Contact the server and print the response
 	consignment, err := parseFile(defaultFilename)

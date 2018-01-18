@@ -4,14 +4,10 @@ package main
 import (
 	"context"
 	"log"
-	"net"
 
 	pb "github.com/BradErz/shippy/consignment-service/proto/consignment"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	"github.com/micro/go-micro"
 )
-
-const port  = ":50051"
 
 type IRepository interface {
 	Create(*pb.Consignment) (*pb.Consignment, error)
@@ -47,38 +43,45 @@ type service struct {
 // CreateConsignment - we just created one method on our service.
 // which is a create method, which takes a context and a request as an
 // argument, these are handled by the gRPC server.
-func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment) (*pb.Response, error)  {
+func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment, res *pb.Response)  error  {
 	// Save our consignment
 	consignment, err := s.repo.Create(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Return matching the response we created in our proto definition
-	return &pb.Response{Created: true, Consignment: consignment}, nil
+	res.Created = true
+	res.Consignment = consignment
+	return nil
+
 }
 
 // GetConsignments - returns a list of all consignments
-func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest) (*pb.Response, error) {
+func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest, res *pb.Response) error {
 	consignments := s.repo.GetAll()
-	return &pb.Response{Consignments: consignments}, nil
+	res.Consignments = consignments
+	return nil
 }
 
 func main()  {
 	repo := &Repository{}
 
-	// Setup our gRPC server
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen %v", err)
-	}
+	// Create a new service. Optionally include some options here.
+	srv := micro.NewService(
+		// This name must match the package name given in your protobuf definition
+		micro.Name("go.micro.srv.consignment"),
+		micro.Version("latest"),
+	)
 
-	s := grpc.NewServer()
+	// Init will parse the command line flags.
+	srv.Init()
 
-	pb.RegisterShippingServiceServer(s, &service{repo: repo})
+	// Register handler
+	pb.RegisterShippingServiceHandler(srv.Server(), &service{repo})
 
-	reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve %v", err)
+	// Run the server
+	if err := srv.Run(); err != nil {
+		log.Fatalf("failed to run server: %v", err)
 	}
 }
