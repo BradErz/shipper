@@ -1,59 +1,47 @@
 package main
 
 import (
+	"fmt"
 	"log"
+
+	"os"
 
 	pb "github.com/BradErz/shippy/vessel-service/proto/vessel"
 	"github.com/micro/go-micro"
-
-	"context"
-	"errors"
 )
 
-// Repository - contains availiable methods for vessel-service
-type Repository interface {
-	FindAvailable(*pb.Specification) (*pb.Vessel, error)
-}
+const (
+	defaultHost = "localhost:27017"
+)
 
-// VesselRepository - contains a list of vessels
-type VesselRepository struct {
-	vessels []*pb.Vessel
-}
-
-// FindAvailable - checks a specification against a map of vessels,
-// if capacity and max weight are below a vessels capacity and max weight
-// then return that vessel.
-func (repo *VesselRepository) FindAvailable(spec *pb.Specification) (*pb.Vessel, error)  {
-	for _, vessel := range repo.vessels {
-		if spec.Capacity <= vessel.Capacity && spec.MaxWeight <= vessel.MaxWeight {
-			return vessel, nil
-		}
-	}
-	return nil, errors.New("no vessel found by that spec")
-}
-
-// gRPC service handler
-type service struct {
-	repo Repository
-}
-
-// FindAvailable
-func (s *service) FindAvailiable(ctx context.Context, req *pb.Specification, res *pb.Response) error {
-	vessel, err := s.repo.FindAvailable(req)
-	if err != nil {
-		return err
-	}
-
-	res.Vessel = vessel
-	return nil
-}
-
-func main()  {
+func createDummyData(repo Repository) {
+	defer repo.Close()
 	vessels := []*pb.Vessel{
-		&pb.Vessel{Id: "vessel001", Name: "Kane's Salty Secret", MaxWeight: 200000, Capacity: 500},
+		{Id: "vessel001", Name: "Kane's Salty Secret", MaxWeight: 200000, Capacity: 500},
+	}
+	for _, v := range vessels {
+		repo.Create(v)
+	}
+}
+
+func main() {
+
+	host := os.Getenv("DB_HOST")
+
+	if host == "" {
+		host = defaultHost
 	}
 
-	repo := &VesselRepository{vessels: vessels}
+	session, err := CreateSession(host)
+	defer session.Close()
+
+	if err != nil {
+		log.Fatalf("Error connecting to datastore: %v", err)
+	}
+
+	repo := &VesselRepository{session.Copy()}
+
+	createDummyData(repo)
 
 	srv := micro.NewService(
 		micro.Name("go.micro.srv.vessel"),
@@ -62,9 +50,10 @@ func main()  {
 
 	srv.Init()
 
-	pb.RegisterVesselServiceHandler(srv.Server(), &service{repo: repo})
+	// Register our implementation with
+	pb.RegisterVesselServiceHandler(srv.Server(), &service{session:session})
 
-	if err := srv.Run() ;err != nil {
-		log.Fatalf("error running service: %v", err)
+	if err := srv.Run(); err != nil {
+		fmt.Println(err)
 	}
 }
